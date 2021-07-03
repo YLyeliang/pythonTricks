@@ -101,22 +101,22 @@ dist.init_process_group(
 
 1. 单节点多进程分布式训练:
 
-   ```shell	
-   python -m torch.distributed.launch --nproc_per_node=NUM_GPUS train.py (--args)
-   ```
+```shell	
+python -m torch.distributed.launch --nproc_per_node=NUM_GPUS train.py (--args)
+```
 
 2. 多节点多进程分布式训练(e.g. two nodes)
 
-   Node 1:(IP:192.168.1.1, port:1234)
+Node 1:(IP:192.168.1.1, port:1234)
 
-   ```shell
-   python -m torch.distributed.launch --nproc_per_node=NUM_GPUS --nnodes=2 --node_rank=0 --master_addr="192.168.1.1" --master_port=1234 train.py (--args)
-   ```
+```shell
+python -m torch.distributed.launch --nproc_per_node=NUM_GPUS --nnodes=2 --node_rank=0 --master_addr="192.168.1.1" --master_port=1234 train.py (--args)
+```
 
-   Node 2: 
+Node 2: 
 
-   ```shell
-   python -m torch.distributed.launch --nproc_per_node=NUM_GPUS --nnodes=2 --node_rank=0 --master_addr="192.168.1.1" --master_port=1234 train.py (--args)
+```shell
+python -m torch.distributed.launch --nproc_per_node=NUM_GPUS --nnodes=2 --node_rank=0 --master_addr="192.168.1.1" --master_port=1234 train.py (--args)
    ```
 
 **注意事项**
@@ -125,32 +125,32 @@ dist.init_process_group(
 
 2. 在训练项目中，必须解析参数``local_rank=LOCAL_PROCESS_RANK`，示例如下:
 
-   ```python
-   import argparse
-   parser= argparse.ArgumentParser()
-   parser.add_argument("--local_rank",type=int)
-   args=parser.parser_args()
-   ```
+```python
+import argparse
+parser= argparse.ArgumentParser()
+parser.add_argument("--local_rank",type=int)
+args=parser.parser_args()
+```
 
-   并将device设置成local rank:
+并将device设置成local rank:
 
-   ```python
-   torch.cuda.set_device(args.local_rank)
-   ```
+```python
+torch.cuda.set_device(args.local_rank)
+```
 
 3. 在训练项目中，需要在训练前初始化分布式后台，并保证`init_method='env://')`:
 
-   ```python
-   torch.distributed.init_process_group(backend="NCCL",init_method='env://')
-   ```
+```python
+torch.distributed.init_process_group(backend="NCCL",init_method='env://')
+```
 
 4. 训练项目中的模型分布式函数设置如下:
 
-   ```python
-   model = torch.nn.parallel.DistributedDataParallel(model,
-                                                    device_ids=[args.local_rank],
-                                                    output_device=args.local_rank)
-   ```
+```python
+model = torch.nn.parallel.DistributedDataParallel(model,
+                                                 device_ids=[args.local_rank],
+                                                 output_device=args.local_rank)
+```
 
    
 
