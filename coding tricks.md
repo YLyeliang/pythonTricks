@@ -63,3 +63,13 @@ multiprocessing提供三种方式来启动进程：
 - forkserver：服务器进程启动后，当一个新进程需要时，父进程链接到服务器并请求它来fork一个新进程。The fork服务器进程是单线程的，所以可以安全使用`os.fork()`
 
  
+## itertools
+`itertools.groupby(list)`:
+```python
+a=[1,1,1,2,2]
+for k,val in groupby(a):
+    print(k,val)
+# 1, [1,1,1]
+# 2, [2,2]
+```
+该方法对给定list中的元素进行分组。默认状态下返回一个key,每个key对应所有的元素，可以在调用时加入`key_func`参数来指定返回的key
