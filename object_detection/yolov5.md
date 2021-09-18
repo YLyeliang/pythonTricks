@@ -49,3 +49,30 @@ yum install devtoolset-7-gcc*
 scl enable devtoolset-7 bash
 which gcc
 gcc --version
+
+
+**dcn**
+DBNet中的dcn模块默认`pythons setup.py build_ext --inplace`编译后，换一块不同架构的gpu，结果就大不相同了。
+
+原因是默认的nvcc编译过程中只针对本机环境的显卡架构进行编译，未对其他架构/计算能力的显卡做兼容处理。需要在编译过程中加入以下参数：
+```python
+setup(
+    name='deform_conv',
+    ext_modules=[
+        CUDAExtension('deform_conv_cuda', [
+            'src/deform_conv_cuda.cpp',
+            'src/deform_conv_cuda_kernel.cu',
+        ], extra_compile_args={
+            "nvcc": ['-gencode=arch=compute_61,code=sm_61', '-gencode=arch=compute_75,code=sm_75',
+                     '-gencode=arch=compute_72,code=sm_72', '-gencode=arch=compute_70,code=sm_70'],
+            'cxx': []}
+                      ),
+        CUDAExtension('deform_pool_cuda', [
+            'src/deform_pool_cuda.cpp', 'src/deform_pool_cuda_kernel.cu'
+        ], extra_compile_args={
+            "nvcc": ['-gencode=arch=compute_61,code=sm_61', '-gencode=arch=compute_75,code=sm_75',
+                     '-gencode=arch=compute_72,code=sm_72', '-gencode=arch=compute_70,code=sm_70'],
+            'cxx': []}),
+    ],
+    cmdclass={'build_ext': BuildExtension})
+```
