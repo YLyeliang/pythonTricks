@@ -36,6 +36,12 @@ sudo make install;
     // data_preprocess  inference, post-process
     // pybind
 
+**验证安装**
+```shell
+pkg-config --modversion opencv
+pkg-config --cflags opencv
+pkg-config --libs opencv
+```
 
 **gcc**
 
