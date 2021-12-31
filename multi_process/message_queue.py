@@ -37,7 +37,7 @@ class messgeQueue(object):
                 in_nums = in_num_list[i * step:]
             else:
                 in_nums = in_num_list[i * step:(i + 1) * step]
-            p = Process(target=self.wrapper, args=(self.bag_download_func, self.bag_queue, in_nums))
+            p = Process(target=self.wrapper, daemon=True, args=(self.bag_download_func, self.bag_queue, in_nums))
             p.daemon = True
             p.start()
 
