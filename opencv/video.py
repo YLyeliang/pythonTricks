@@ -92,7 +92,7 @@ def extract3(video_name, target_img_path, mp_num=4):
 def extract4(video_name, target_img_path):
     cap = cv2.VideoCapture(video_name)
     frame_idx = 0
-    frame_step = 2
+    frame_step = 1
     # import numpy as np
     # frame = np.zeros((1024,768),dtype=np.uint8)
     while cap.isOpened():
@@ -100,9 +100,13 @@ def extract4(video_name, target_img_path):
         if ret:
             if frame_idx % frame_step == 0:
                 ret, frame = cap.retrieve()
-                cv2.imwrite(
-                    os.path.join(target_img_path,
-                                 'frame{:d}.jpg'.format(frame_idx)), frame)
+                if frame.mean() < 1:
+                    pass
+                else:
+                    # print("e")
+                    cv2.imwrite(
+                        os.path.join(target_img_path,
+                                     'frame{:d}.jpg'.format(frame_idx)), frame)
             frame_idx += 1
             # print(i, frame_idx)
 
@@ -128,10 +132,10 @@ if __name__ == '__main__':
     # e = time.time()
     # print(e - s)
 
-    s = time.time()
-    extract1(video_name, path)
-    e = time.time()
-    print(e - s)
+    # s = time.time()
+    # extract1(video_name, path)
+    # e = time.time()
+    # print(e - s)
 
     s = time.time()
     extract4(video_name, path3)
