@@ -58,6 +58,27 @@ def draw_plot(mpd_highway_dev,
     plt.savefig(name+'.png')
     # plt.show()
 
+def draw_plotv2(mpd_highway_dev,
+              mpd_highway_ep,
+              mpi_highway_dev,
+              mpi_highway_ep,
+              name = "highway"):
+    init_plot_params()
+    x = list(range(len(mpd_highway_ep)))
+    plt.plot(x, mpd_highway_dev, 'r', label='mpd-highway-dev')
+    plt.plot(x, mpd_highway_ep, 'g', label='mpd_highway_ep')
+    plt.plot(x, mpi_highway_dev, 'b', label='mpi_highway_dev')
+    plt.plot(x, mpi_highway_ep, 'yellow', label='mpi_highway_ep')
+    plt.plot(x, mpd_highway_dev, 'ro-', x, mpd_highway_ep, 'g+-', x, mpi_highway_dev, 'b^-', x, mpi_highway_ep, "y+-")
+    plt.title(f"{name}-MPI-MPD")
+    plt.xlabel("Time")
+    plt.ylabel("Number")
+    ax = plt.gca()
+    x_major_locator = MultipleLocator(1)
+    ax.xaxis.set_major_locator(x_major_locator)
+    plt.xlim(0, 5)
+    plt.legend()
+    plt.savefig(name+'.png')
 
 if __name__ == '__main__':
     # draw_plot(mpd_highway_dev, mpd_highway_ep, mpi_highway_dev, mpi_highway_ep)
