@@ -9,7 +9,7 @@ def sin_polyfit():
     xxx = np.arange(0, 1000)  # x值，此时表示弧度
     yyy = np.sin(xxx * np.pi / 180)  # 函数值，转化成度
 
-    z1 = np.polyfit(xxx, yyy, 1)  # 用7次多项式拟合，可改变多项式阶数；
+    z1 = np.polyfit(xxx, yyy, 2)  # 用7次多项式拟合，可改变多项式阶数；
     p1 = np.poly1d(z1)  # 得到多项式系数，按照阶数从高到低排列
     yvals = p1(xxx)  # 可直接使用yvals=np.polyval(z1,xxx)
     print(z1)
@@ -44,7 +44,8 @@ def interp():
 if __name__ == '__main__':
     f = open("tmp.log", "w")
     try:
-        poly_angle()
+        # poly_angle()
+        sin_polyfit()
     except Exception as e:  # traceback
         exc_type, exc_value, exc_traceback = sys.exc_info()
         print("*** format_exception:")
