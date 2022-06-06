@@ -95,7 +95,8 @@ def cubic_ransac_curve_fit(x, y):
     print('Equation: {0:.5f} + {1:.5f}x + {2:.5f}x^2 + {3:.5f}x^3'.format(coeff[0], coeff[1], coeff[2], coeff[3]))
     print('Y-intercept: {}'.format(coeff[0]))
     plt.legend()
-    plt.show()
+    # plt.show()
+    return coeff
 
 
 if __name__ == '__main__':

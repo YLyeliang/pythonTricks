@@ -1,6 +1,9 @@
+import os
+import os.path as osp
 import cv2
 import numpy as np
 from collections import defaultdict
+from ransac_fit import cubic_ransac_curve_fit
 
 """
 感知后处理曲线拟合优化：
@@ -22,7 +25,7 @@ def polyfit(points, deg=3):
     return coeff
 
 
-def vis(points, coeff):
+def vis(points, coeff, showline):
     """
     Visualize the points and fitted curve
     Args:
@@ -63,18 +66,33 @@ def vis(points, coeff):
 
 
 if __name__ == '__main__':
-    vis(0, 0)
+    # vis(0, 0)
+
+    out_root = ""
 
     frames = defaultdict(defaultdict)
-    file = ""
+    file = "misc/points3d_raw_debug.txt"
     with open(file, 'r') as f:
         lines = f.readlines()
 
     # 横轴，纵轴
     for line in lines:
-        line.rstrip('\n').strip()
+        line = line.rstrip('\n').strip()
         arr = line.split(" ")
         frame, line_id = arr[0].split("_")
         points = arr[1:]
         points = [[float(p) for p in pt.split(',')] for pt in points]
+        points = np.array(points)
+        points = points[:, ::-1]  # x: longitudinal y: lateral
         frames[frame][line_id] = points
+
+    for frame, lines in frames.items():
+        showline_w = 600
+        showline_h = 640
+        showline = np.zeros((showline_w, showline_h), dtype=np.uint8)
+        for line in lines:
+            coeff = cubic_ransac_curve_fit(line[:, 0], line[:, 1])
+            vis(line, coeff, showline)
+        file_name = f"frame_{frame}_.png"
+        out_path = osp.join(out_root, file_name)
+        cv2.imwrite(out_path, showline)
