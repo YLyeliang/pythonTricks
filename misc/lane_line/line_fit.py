@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 from collections import defaultdict
 from ransac_fit import cubic_ransac_curve_fit
+from tqdm import tqdm
 
 """
 感知后处理曲线拟合优化：
@@ -14,7 +15,17 @@ Output: coeff (c0, c1, c2, c3)
 
 # 点过滤
 def ptFilter(points):
-    points = [pt for pt in points if pt[0] <= 120]
+    # version 0.2
+    new_points = []
+    for i, pt in enumerate(points):
+        if i == 0:
+            pre = pt[0]
+        else:
+            if pt[0] <= 120 or pt[0] - pre > 20:
+                new_points.append(pt)
+                pre = pt[0]
+    # points = [pt for pt in points if pt[0] <= 120]   # version 0.1
+    points = np.array(points)
     return points
 
 
@@ -50,7 +61,7 @@ def vis(points, coeff, showline):
     # plot fitted line and raw points
     for i, p in enumerate(points):  # x,y
         x = coeff[0] + p[0] * coeff[1] + p[0] ** 2 * coeff[2] + p[0] ** 3 * coeff[3]  # y belong to lateral
-        x = -int(x * show_w_scl + showline_w / 2)
+        x = -int(x * show_w_scl) + showline_w / 2
         y = int(showline_h - p[0] * show_h_scl)
         if i == 0:
             p_s = (x, y)
@@ -59,7 +70,7 @@ def vis(points, coeff, showline):
             cv2.line(showline, p_s, p_e, color=(0, 255, 0), thickness=1)
             p_s = p_e
 
-        center = (-int(show_w_scl * p[1] + showline_w / 2), y)
+        center = (-int(show_w_scl * p[1]) + showline_w / 2, y)
         cv2.circle(showline, center, 2, (255, 255, 255), -1)
 
 
@@ -67,6 +78,8 @@ if __name__ == '__main__':
     # vis(0, 0)
 
     out_root = ""
+    if not osp.exists(out_root):
+        os.makedirs(out_root)
 
     frames = defaultdict(defaultdict)
     file = "misc/points3d_raw_debug.txt"
@@ -84,7 +97,7 @@ if __name__ == '__main__':
         points = points[:, ::-1]  # x: longitudinal y: lateral
         frames[frame][line_id] = points
 
-    for frame, lines in frames.items():
+    for frame, lines in tqdm(frames.items()):
         showline_w = 600
         showline_h = 640
         show_w_scl = 30
@@ -106,7 +119,7 @@ if __name__ == '__main__':
         # plot curve
         for line_id, line in lines.items():
             # coeff = cubic_ransac_curve_fit(line[:, 0], line[:, 1])
-            coeff = polyfit(line[:, 0], line[:, 1])
+            coeff = polyfit(line[:, 0], line[:, 1])[::-1]  # c0 c1 c2 c3
             vis(line, coeff, showline)
         file_name = f"frame_{frame}_.png"
         out_path = osp.join(out_root, file_name)
