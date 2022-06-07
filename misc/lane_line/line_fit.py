@@ -12,15 +12,21 @@ Output: coeff (c0, c1, c2, c3)
 """
 
 
+# 点过滤
+def ptFilter(points):
+    points = [pt for pt in points if pt[0] <= 120]
+    return points
+
+
 # 点采样
 def ptSample(points):
     pass
 
 
 # 曲线拟合
-def polyfit(points, deg=3):
-    x_arr = np.array([pt[1] for pt in points])
-    y_arr = np.array([pt[0] for pt in points])
+def polyfit(x_arr, y_arr, deg=3):
+    # x_arr = np.array([pt[1] for pt in points])
+    # y_arr = np.array([pt[0] for pt in points])
     coeff = np.polyfit(x_arr, y_arr, 3)
     return coeff
 
@@ -36,23 +42,15 @@ def vis(points, coeff, showline):
     showline_h = 640
     show_w_scl = 30
     show_h_scl = 5
-    showline = np.zeros((showline_w, showline_h), dtype=np.uint8)
-    cv2.putText(showline, "-det", (15, 24), cv2.FONT_HERSHEY_COMPLEX, 0.4, color=(0, 255, 0))
+    # showline = np.zeros((showline_w, showline_h), dtype=np.uint8)
+    # cv2.putText(showline, "-det", (15, 24), cv2.FONT_HERSHEY_COMPLEX, 0.4, color=(0, 255, 0))
 
-    # initialize distance grid
-    dis_arr = np.arange(10, 110, 10)
-    for dis in dis_arr:
-        y = showline_h - dis * show_h_scl
-        x_arr = np.arange(50, showline_w, 50)
-        cv2.putText(showline, f"{dis}", (15, y), cv2.FONT_HERSHEY_COMPLEX, 0.4, color=(192, 192, 192))
-        for x in x_arr:
-            cv2.line(showline, (x, y), (x + 30, y), color=(192, 192, 192), thickness=1)
     # cv2.imshow("debug", showline)
     # cv2.waitKey()
     # plot fitted line and raw points
     for i, p in enumerate(points):  # x,y
         x = coeff[0] + p[0] * coeff[1] + p[0] ** 2 * coeff[2] + p[0] ** 3 * coeff[3]  # y belong to lateral
-        x = -int(x * show_w_scl) + showline_w / 2
+        x = -int(x * show_w_scl + showline_w / 2)
         y = int(showline_h - p[0] * show_h_scl)
         if i == 0:
             p_s = (x, y)
@@ -89,9 +87,26 @@ if __name__ == '__main__':
     for frame, lines in frames.items():
         showline_w = 600
         showline_h = 640
-        showline = np.zeros((showline_w, showline_h), dtype=np.uint8)
-        for line in lines:
-            coeff = cubic_ransac_curve_fit(line[:, 0], line[:, 1])
+        show_w_scl = 30
+        show_h_scl = 5
+        showline = np.zeros((showline_h, showline_w, 3), dtype=np.uint8)
+
+        cv2.putText(showline, "det", (15, 24), cv2.FONT_HERSHEY_COMPLEX, 0.4, color=(0, 255, 0))
+        cv2.putText(showline, f"frame_{frame}", (15, 48), cv2.FONT_HERSHEY_COMPLEX, 0.6, color=(192, 25, 192))
+
+        # initialize distance grid
+        dis_arr = np.arange(10, 110, 10)
+        for dis in dis_arr:
+            y = showline_h - dis * show_h_scl
+            x_arr = np.arange(50, showline_w, 50)
+            cv2.putText(showline, f"{dis}", (15, y), cv2.FONT_HERSHEY_COMPLEX, 0.4, color=(192, 192, 192))
+            for x in x_arr:
+                cv2.line(showline, (x, y), (x + 30, y), color=(192, 192, 192), thickness=1)
+
+        # plot curve
+        for line_id, line in lines.items():
+            # coeff = cubic_ransac_curve_fit(line[:, 0], line[:, 1])
+            coeff = polyfit(line[:, 0], line[:, 1])
             vis(line, coeff, showline)
         file_name = f"frame_{frame}_.png"
         out_path = osp.join(out_root, file_name)
