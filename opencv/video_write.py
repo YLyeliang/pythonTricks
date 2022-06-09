@@ -23,7 +23,7 @@ if __name__ == '__main__':
     out_path = args.output_dir
     fps = args.fps
     img_list = os.listdir(img_dir)
-    img_list = [name for name in img_list if "track_point_un" in name]
+    # img_list = [name for name in img_list if "track_point_un" in name]
     shape = cv2.imread(osp.join(img_dir, img_list[0])).shape[:2]  # H W
 
     img_list = sorted(img_list, key=lambda x: int(x.split("_")[1]))
