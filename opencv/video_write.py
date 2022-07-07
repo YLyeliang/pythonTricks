@@ -12,6 +12,8 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--input_dir", help="The dir of input images")
     parser.add_argument("-o", "--output_dir", help="The output dir of video")
+    parser.add_argument("--start",type=int,default=0,help="index start from")
+    parser.add_argument("--end", type=int, default=-1, help="index end in")
     parser.add_argument("--fps", type=int, default=24, help="The fps of video")
     return parser.parse_args()
 
@@ -21,12 +23,16 @@ if __name__ == '__main__':
     args = parse_args()
     img_dir = args.input_dir
     out_path = args.output_dir
+    start = args.start
+    end = args.end
     fps = args.fps
     img_list = os.listdir(img_dir)
     # img_list = [name for name in img_list if "track_point_un" in name]
     shape = cv2.imread(osp.join(img_dir, img_list[0])).shape[:2]  # H W
 
     img_list = sorted(img_list, key=lambda x: int(x.split("_")[1]))
+    end = len(img_list) if end == -1 else end
+    img_list = img_list[start:end]
 
     # initialize video settings
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')

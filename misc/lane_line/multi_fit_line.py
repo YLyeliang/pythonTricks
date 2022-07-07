@@ -3,7 +3,7 @@ import os.path as osp
 import cv2
 import numpy as np
 from collections import defaultdict
-from ransac_fit import cubic_ransac_curve_fit, quadratic_ransac_curve_fit, linear_regression_regularization
+from ransac_fit import cubic_ransac_curve_fit, quadratic_ransac_curve_fit, linear_regression_regularization, get_score
 from tqdm import tqdm
 from copy import deepcopy
 from utils import *
@@ -135,7 +135,7 @@ def polyfit(x_arr, y_arr, deg=3, w=None, regression=False):
     return coeff
 
 
-def vis(points, coeff, showline, inliers=None, show_coeff=True, index=0):
+def vis(points, coeff, showline, color=(0, 255, 0), inliers=None, show_coeff=True, index=0):
     """
     Visualize the points and fitted curve
     Args:
@@ -160,7 +160,7 @@ def vis(points, coeff, showline, inliers=None, show_coeff=True, index=0):
             p_s = (x, y)
         else:
             p_e = (x, y)
-            cv2.line(showline, p_s, p_e, color=(0, 255, 0), thickness=1)
+            cv2.line(showline, p_s, p_e, color=color, thickness=1)
             p_s = p_e
 
     # plot raw points
@@ -412,30 +412,17 @@ def get_line_weights_by_dis(points):
     return sample_ls_w
 
 
-# def LsVsRANSACVsSampleLs():
-#
-
 if __name__ == '__main__':
     # vis(0, 0)
-    MAX_FRAME_NUMS = 1000
 
     # out_root = "debug/iter_100_ths_02_filter_samplev2avg_quadra_cubic_min_samples6_2dfilterv2"
-    # out_root = "debug/580_roi_samples332_6pt_ransac_halfpoints_vs_ls_vs_ls_regular"
-    out_root = "debug/581_roi_ransac_vs_ls_vs_ls_regular_v2"
-    # out_root = "debug/580_roi_ransac_vs_ls_vs_ls_regular"
-
+    out_root = "debug/iter_30_roi_samples431_6pt_multi_line_fit"
     if not osp.exists(out_root):
         os.makedirs(out_root)
     # frames_2d = read_points("points2d_debug.txt")
     frames_2d = read_points("/home/yel/Projects/zdrive/debug/orin_ori/points2d_debug.txt")
 
-    # orin_path = "/home/yel/Projects/zdrive/debug/orin_ori_580_0523_1648"
-    orin_path = "/home/yel/Projects/zdrive/debug/orin_ori"
-    orin_list = os.listdir(orin_path)
-    s_match = "_track_point_undistort.png"
-    orin_list = [_ for _ in orin_list if s_match in _]
-
-    # frames_2d_keep = pt2dFilter(frames_2d)
+    frames_2d_keep = pt2dFilter(frames_2d)
     # frames_2d_keep = pt2dFilterv2(frames_2d)
     # frames_2d_keep = pt2dFilterv3(frames_2d)
 
@@ -456,8 +443,7 @@ if __name__ == '__main__':
 
     # exit(1)
     frames = defaultdict(defaultdict)
-    # file = "points3d_raw_debug.txt"
-    # file = "/home/yel/Projects/zdrive/debug/orin_ori_580_0523_1648/points3d_raw_debug.txt"
+    file = "points3d_raw_debug.txt"
     file = "/home/yel/Projects/zdrive/debug/orin_ori/points3d_raw_debug.txt"
     with open(file, 'r') as f:
         lines = f.readlines()
@@ -473,20 +459,12 @@ if __name__ == '__main__':
         points = points[:, ::-1]  # x: longitudinal y: lateral
         frames[frame][line_id] = points
 
-    frame_count = 0
     for frame, lines in tqdm(frames.items()):
-        if frame_count >= MAX_FRAME_NUMS:
-            break
         showline_w = 600
         showline_h = 640
         show_w_scl = 30
         show_h_scl = 5
         showline = np.zeros((showline_h, showline_w, 3), dtype=np.uint8)
-        orin_name = f"frame_{frame}{s_match}"
-        orin_img = cv2.imread(osp.join(orin_path, orin_name))
-        orin_img = orin_img[:, :1280, :]
-        # cv2.imshow("ori", orin_img)
-        # cv2.waitKey()
 
         cv2.putText(showline, "det", (15, 24), cv2.FONT_HERSHEY_COMPLEX, 0.4, color=(0, 255, 0))
         cv2.putText(showline, "orin_ls", (15, 48), cv2.FONT_HERSHEY_COMPLEX, 0.4, color=(0, 0, 255))
@@ -517,54 +495,57 @@ if __name__ == '__main__':
         # plot curve
         index = 0
         for line_id, line in lines.items():
-            least_coeff = polyfit(line[:, 0], line[:, 1])
-            # vis_ls(line, least_coeff, showline)
-            # keep_idx = frames_2d_keep[frame][line_id]  # 拿到2D点过滤后的索引
-            # line = line[keep_idx] if len(keep_idx) == len(line) else line
-            # if len(keep_idx) != len(line):
-            #     print(f"frame_id:  {frame}, line_id: {line_id}")
-            # new_line = line[keep_idx]
-
             f_line = ptFilter(line)
             # f_line = ptSample(f_line, dis=6)
-            f_line = ptSamplev2(f_line, dis=[3, 3, 2], average=False)
-            min_sample = min(f_line.shape[0], max(int(f_line.shape[0] / 2), 4))
-            if f_line[-1][0] - f_line[0][0] >= 30:
-                coeff, inliers, outliers = cubic_ransac_curve_fit(f_line[:, 0], f_line[:, 1],
-                                                                  ridge=False,
-                                                                  lasso=False,
-                                                                  res_th=0.4,
-                                                                  min_sample=min_sample)
-                # print(coeff)
-            else:
-                coeff, inliers, outliers = quadratic_ransac_curve_fit(f_line[:, 0], f_line[:, 1])
+            f_line = ptSamplev2(f_line, dis=[4, 3, 2], average=False)
+            cubic_model, cubic_coeff = linear_regression_regularization(f_line[:, 0], f_line[:, 1])
+            quadra_model, quadra_coeff = linear_regression_regularization(f_line[:, 0], f_line[:, 1], degree=2)
+            linear_model, linear_coeff = linear_regression_regularization(f_line[:, 0], f_line[:, 1], degree=1)
+            cubic_score = get_score(cubic_model, f_line[:, 0], f_line[:, 1], degree=3)
+            quadra_score = get_score(quadra_model, f_line[:, 0], f_line[:, 1], degree=2)
+            linear_score = get_score(linear_model, f_line[:, 0], f_line[:, 1], degree=1)
+            scores = [linear_score, quadra_score, cubic_score]
+            coeffs = [linear_coeff, quadra_coeff, cubic_coeff]
+            model_index = np.argmax(scores)
+            coeff = coeffs[model_index]
+            colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
+            for i, co in enumerate(coeffs):
+                vis(f_line, co, showline, colors[i], None, False, index=index)
+                cv2.putText(showline, f"curve: {model_index + 1} s: {scores[i]}",
+                            (x, y + index * 30 + i * 20),
+                            cv2.FONT_HERSHEY_COMPLEX, 0.5, colors[i])
 
-            # sample_ls_w = get_line_weights_by_dis(f_line) # 蓝色
-            sample_ls_coeff = polyfit(f_line[:, 0], f_line[:, 1], w=None)  # c0 c1 c2 c3
-            vis_ls(line, sample_ls_coeff, showline, color=(255, 0, 0), coeff_color=(255, 128, 128), show_coeff=True,
-                   index=index)
-            # cv2.imshow("heh", showline)
-            # cv2.waitKey()
+            mid = f_line[int(len(f_line) / 2)]
+            center = (int(-(show_w_scl * mid[1]) + showline_w / 2), int(showline_h - mid[0] * show_h_scl))
+            x = center[0]
+            y = center[1]
 
-            # 采样后ls+regularization          红色
-            _, sample_ls_coeff_regular = linear_regression_regularization(f_line[:, 0], f_line[:, 1], l2=True)
-            vis_ls(line, sample_ls_coeff_regular, showline, color=(0, 0, 255), coeff_color=(0, 0, 255), show_coeff=True,
-                   index=index + 5)
-            # cv2.imshow("heh", showline)
-            # cv2.waitKey()
+            #
+            # if f_line[-1][0] - f_line[0][0] >= 30:
+            #     coeff, inliers, outliers = cubic_ransac_curve_fit(f_line[:, 0], f_line[:, 1], ridge=True, lasso=False)
+            # else:
+            #     coeff, inliers, outliers = quadratic_ransac_curve_fit(f_line[:, 0], f_line[:, 1])
+
+            # sample_ls_w = get_line_weights_by_dis(f_line)
+            # sample_ls_coeff = polyfit(f_line[:, 0], f_line[:, 1], w=None)  # c0 c1 c2 c3
+            # vis_ls(line, sample_ls_coeff, showline, color=(255, 0, 0), coeff_color=(255, 128, 128), show_coeff=True,
+            #        index=index)
+
+            # 采样后ls+regularization
+            # sample_ls_coeff_regular = linear_regression_regularization(f_line[:, 0], f_line[:, 1])
+            # vis_ls(line, sample_ls_coeff_regular, showline, color=(0, 0, 255), coeff_color=(0, 0, 255), show_coeff=True,
+            #        index=index + 5)
 
             # inliers = [True] * len(f_line)
-            if len(coeff) == 3:
-                coeff = np.append(coeff, 0)
+            # if len(coeff) == 3:
+            #     coeff = np.append(coeff, 0)
             p_start = (int(-line[0, 1] * show_w_scl + showline_w / 2), int(showline_h - line[0, 0] * show_h_scl))
 
             cv2.putText(showline, line_id, p_start, cv2.FONT_HERSHEY_COMPLEX, 0.6,
                         (0, 0, 255))
-            vis(f_line, coeff, showline, inliers, show_coeff=False, index=index)
+            # vis(f_line, coeff, showline, inliers, show_coeff=False, index=index)
 
             index += 1
         file_name = f"frame_{frame}_.png"
         out_path = osp.join(out_root, file_name)
-        out_img = cv2.hconcat([orin_img, showline])
-        cv2.imwrite(out_path, out_img)
-        frame_count += 1
+        cv2.imwrite(out_path, showline)

@@ -7,6 +7,7 @@ from ransac_fit import cubic_ransac_curve_fit, quadratic_ransac_curve_fit, linea
 from tqdm import tqdm
 from copy import deepcopy
 from utils import *
+import json
 
 """
 感知后处理曲线拟合优化：
@@ -412,47 +413,62 @@ def get_line_weights_by_dis(points):
     return sample_ls_w
 
 
-# def LsVsRANSACVsSampleLs():
-#
+def init_grid(showline):
+    # initialize distance grid
+    dis_arr = np.arange(10, 110, 10)
+    for dis in dis_arr:
+        y = showline_h - dis * show_h_scl
+        # x_arr = np.arange(50, showline_w, 40)
+        cv2.putText(showline, f"{dis}", (15, y), cv2.FONT_HERSHEY_COMPLEX, 0.4, color=(192, 192, 192))
+        cv2.line(showline, (50, y), (showline_w, y), color=(192, 192, 192), thickness=1)
+        # for x in x_arr:
+        #     cv2.line(showline, (x, y), (x + 30, y), color=(192, 192, 192), thickness=1)
+    lat_arr = np.arange(-9, 9, 1)
+    for dis in lat_arr:
+        x = int(-dis * show_w_scl + showline_w / 2)
+        # y_arr = np.arange(120, showline_h, 40)
+        cv2.putText(showline, f"{dis}", (x, 100), cv2.FONT_HERSHEY_COMPLEX, 0.4, color=(192, 192, 192))
+        cv2.line(showline, (x, 120), (x, showline_h), color=(192, 192, 192), thickness=1)
+        # for y in y_arr:
+        #     cv2.line(showline, (x, y), (x, y + 30), color=(192, 192, 192), thickness=1)
+
 
 if __name__ == '__main__':
-    # vis(0, 0)
-    MAX_FRAME_NUMS = 1000
+    # total frame used to test
+    MAX_FRAME_NUMS = 300
 
+    # Experiment settings for ransac
+    # res_th = np.arange(0.1, 1, 0.1).tolist()
+    # res_th = list(map(lambda x: round(x, 2), res_th))
+    res_th = 0.3
+    min_samples = np.arange(5, 50, 3).tolist()
+    # min_samples = 6
+    # max_trials = np.arange(10, 100, 10)
+    max_trials = 200
+
+    param_file_name = "ransac_param_settings.json"
     # out_root = "debug/iter_100_ths_02_filter_samplev2avg_quadra_cubic_min_samples6_2dfilterv2"
-    # out_root = "debug/580_roi_samples332_6pt_ransac_halfpoints_vs_ls_vs_ls_regular"
-    out_root = "debug/581_roi_ransac_vs_ls_vs_ls_regular_v2"
-    # out_root = "debug/580_roi_ransac_vs_ls_vs_ls_regular"
-
+    out_root = "debug/581_roi_samples332_ransac_min_samples_experiment_stop_prob_1_max_trial_200"
     if not osp.exists(out_root):
         os.makedirs(out_root)
+
+    out_param = osp.join(out_root, param_file_name)
+
+    # write the params of ransac
+    param_json = dict(residual_thresh=res_th,
+                      min_samples=min_samples,
+                      max_trials=max_trials
+                      )
+    with open(out_param, "w") as f:
+        json.dump(param_json, f, sort_keys=True, indent=4)
+
     # frames_2d = read_points("points2d_debug.txt")
-    frames_2d = read_points("/home/yel/Projects/zdrive/debug/orin_ori/points2d_debug.txt")
+    # frames_2d = read_points("/home/yel/Projects/zdrive/debug/orin_ori_580_0523_1648/points2d_debug.txt")
 
     # orin_path = "/home/yel/Projects/zdrive/debug/orin_ori_580_0523_1648"
-    orin_path = "/home/yel/Projects/zdrive/debug/orin_ori"
-    orin_list = os.listdir(orin_path)
-    s_match = "_track_point_undistort.png"
-    orin_list = [_ for _ in orin_list if s_match in _]
-
-    # frames_2d_keep = pt2dFilter(frames_2d)
-    # frames_2d_keep = pt2dFilterv2(frames_2d)
-    # frames_2d_keep = pt2dFilterv3(frames_2d)
-
-    # vis points 2d
-    # for frame, lines in tqdm(frames_2d.items()):
-    #     img_show = np.zeros((640, 1280, 3), dtype=np.uint8)
-    #     keep_lines = frames_2d_keep[frame]
-    #     for line_id, line in lines.items():
-    #         keep_line = keep_lines[line_id]
-    #         vis_points2d(line, keep_line, img_show)
-    #     if not osp.exists(out_root + "_2d"):
-    #         os.makedirs(out_root + "_2d")
-    #     out_path = osp.join(out_root + "_2d", f"frame_{frame}_2d.png")
-    #     cv2.imwrite(out_path, img_show)
-
-    # exit(-1)
-    frame_1116 = frames_2d["1116"]
+    # orin_list = os.listdir(orin_path)
+    # s_match = "_track_point_undistort.png"
+    # orin_list = [_ for _ in orin_list if s_match in _]
 
     # exit(1)
     frames = defaultdict(defaultdict)
@@ -474,97 +490,98 @@ if __name__ == '__main__':
         frames[frame][line_id] = points
 
     frame_count = 0
+    # frame_number = '140'
     for frame, lines in tqdm(frames.items()):
         if frame_count >= MAX_FRAME_NUMS:
             break
+        # if frame_number is not None:
+        #     lines = frames[frame_number]
+        #     if frame_count > 0:
+        #         break
         showline_w = 600
         showline_h = 640
         show_w_scl = 30
         show_h_scl = 5
-        showline = np.zeros((showline_h, showline_w, 3), dtype=np.uint8)
-        orin_name = f"frame_{frame}{s_match}"
-        orin_img = cv2.imread(osp.join(orin_path, orin_name))
-        orin_img = orin_img[:, :1280, :]
+
+        # orin_name = f"frame_{frame}{s_match}"
+        # orin_img = cv2.imread(osp.join(orin_path, orin_name))
+        # orin_img = orin_img[:, :1280, :]
         # cv2.imshow("ori", orin_img)
         # cv2.waitKey()
-
-        cv2.putText(showline, "det", (15, 24), cv2.FONT_HERSHEY_COMPLEX, 0.4, color=(0, 255, 0))
-        cv2.putText(showline, "orin_ls", (15, 48), cv2.FONT_HERSHEY_COMPLEX, 0.4, color=(0, 0, 255))
-        cv2.putText(showline, f"frame_{frame}", (15, 72), cv2.FONT_HERSHEY_COMPLEX, 0.6, color=(192, 25, 192))
-
-        # initialize distance grid
-        dis_arr = np.arange(10, 110, 10)
-        for dis in dis_arr:
-            y = showline_h - dis * show_h_scl
-            # x_arr = np.arange(50, showline_w, 40)
-            cv2.putText(showline, f"{dis}", (15, y), cv2.FONT_HERSHEY_COMPLEX, 0.4, color=(192, 192, 192))
-            cv2.line(showline, (50, y), (showline_w, y), color=(192, 192, 192), thickness=1)
-            # for x in x_arr:
-            #     cv2.line(showline, (x, y), (x + 30, y), color=(192, 192, 192), thickness=1)
-        lat_arr = np.arange(-9, 9, 1)
-        for dis in lat_arr:
-            x = int(-dis * show_w_scl + showline_w / 2)
-            # y_arr = np.arange(120, showline_h, 40)
-            cv2.putText(showline, f"{dis}", (x, 100), cv2.FONT_HERSHEY_COMPLEX, 0.4, color=(192, 192, 192))
-            cv2.line(showline, (x, 120), (x, showline_h), color=(192, 192, 192), thickness=1)
-            # for y in y_arr:
-            #     cv2.line(showline, (x, y), (x, y + 30), color=(192, 192, 192), thickness=1)
 
         # debug
         if frame == '239':
             debug = 1
             # print(lines)
-        # plot curve
-        index = 0
-        for line_id, line in lines.items():
-            least_coeff = polyfit(line[:, 0], line[:, 1])
-            # vis_ls(line, least_coeff, showline)
-            # keep_idx = frames_2d_keep[frame][line_id]  # 拿到2D点过滤后的索引
-            # line = line[keep_idx] if len(keep_idx) == len(line) else line
-            # if len(keep_idx) != len(line):
-            #     print(f"frame_id:  {frame}, line_id: {line_id}")
-            # new_line = line[keep_idx]
 
-            f_line = ptFilter(line)
-            # f_line = ptSample(f_line, dis=6)
-            f_line = ptSamplev2(f_line, dis=[3, 3, 2], average=False)
-            min_sample = min(f_line.shape[0], max(int(f_line.shape[0] / 2), 4))
-            if f_line[-1][0] - f_line[0][0] >= 30:
-                coeff, inliers, outliers = cubic_ransac_curve_fit(f_line[:, 0], f_line[:, 1],
-                                                                  ridge=False,
-                                                                  lasso=False,
-                                                                  res_th=0.4,
-                                                                  min_sample=min_sample)
-                # print(coeff)
-            else:
-                coeff, inliers, outliers = quadratic_ransac_curve_fit(f_line[:, 0], f_line[:, 1])
+        for param in min_samples:
+            # plot curve
+            showline = np.zeros((showline_h, showline_w, 3), dtype=np.uint8)
+            init_grid(showline)
+            cv2.putText(showline, f"frame_{frame}", (15, 72), cv2.FONT_HERSHEY_COMPLEX, 0.6, color=(192, 25, 192))
+            index = 0
+            max_samples =0
 
-            # sample_ls_w = get_line_weights_by_dis(f_line) # 蓝色
-            sample_ls_coeff = polyfit(f_line[:, 0], f_line[:, 1], w=None)  # c0 c1 c2 c3
-            vis_ls(line, sample_ls_coeff, showline, color=(255, 0, 0), coeff_color=(255, 128, 128), show_coeff=True,
-                   index=index)
-            # cv2.imshow("heh", showline)
-            # cv2.waitKey()
+            for line_id, line in lines.items():
+                least_coeff = polyfit(line[:, 0], line[:, 1])
+                # vis_ls(line, least_coeff, showline)
+                # keep_idx = frames_2d_keep[frame][line_id]  # 拿到2D点过滤后的索引
+                # line = line[keep_idx] if len(keep_idx) == len(line) else line
+                # if len(keep_idx) != len(line):
+                #     print(f"frame_id:  {frame}, line_id: {line_id}")
+                # new_line = line[keep_idx]
 
-            # 采样后ls+regularization          红色
-            _, sample_ls_coeff_regular = linear_regression_regularization(f_line[:, 0], f_line[:, 1], l2=True)
-            vis_ls(line, sample_ls_coeff_regular, showline, color=(0, 0, 255), coeff_color=(0, 0, 255), show_coeff=True,
-                   index=index + 5)
-            # cv2.imshow("heh", showline)
-            # cv2.waitKey()
+                f_line = ptFilter(line)
+                # f_line = ptSample(f_line, dis=6)
+                f_line = ptSamplev2(f_line, dis=[3, 3, 2], average=False)
+                max_samples  = max(max_samples,f_line.shape[0])
+                samples = min(param, f_line.shape[0])
+                if f_line[-1][0] - f_line[0][0] >= 30:
+                    coeff, inliers, attrs = cubic_ransac_curve_fit(f_line[:, 0], f_line[:, 1],
+                                                                   ridge=False,
+                                                                   lasso=False,
+                                                                   res_th=res_th,
+                                                                   min_sample=samples,
+                                                                   max_trials=max_trials)
+                    # print(coeff)
+                else:
+                    coeff, inliers, attrs = quadratic_ransac_curve_fit(f_line[:, 0], f_line[:, 1])
 
-            # inliers = [True] * len(f_line)
-            if len(coeff) == 3:
-                coeff = np.append(coeff, 0)
-            p_start = (int(-line[0, 1] * show_w_scl + showline_w / 2), int(showline_h - line[0, 0] * show_h_scl))
+                n_trails = attrs["n_trials"]
 
-            cv2.putText(showline, line_id, p_start, cv2.FONT_HERSHEY_COMPLEX, 0.6,
-                        (0, 0, 255))
-            vis(f_line, coeff, showline, inliers, show_coeff=False, index=index)
+                # sample_ls_w = get_line_weights_by_dis(f_line) # 蓝色
+                # sample_ls_coeff = polyfit(f_line[:, 0], f_line[:, 1], w=None)  # c0 c1 c2 c3
+                # vis_ls(line, sample_ls_coeff, showline, color=(255, 0, 0), coeff_color=(255, 128, 128), show_coeff=True,
+                #        index=index)
+                # cv2.imshow("heh", showline)
+                # cv2.waitKey()
 
-            index += 1
-        file_name = f"frame_{frame}_.png"
-        out_path = osp.join(out_root, file_name)
-        out_img = cv2.hconcat([orin_img, showline])
-        cv2.imwrite(out_path, out_img)
+                # 采样后ls+regularization          红色
+                # _, sample_ls_coeff_regular = linear_regression_regularization(f_line[:, 0], f_line[:, 1], l2=True)
+                # vis_ls(line, sample_ls_coeff_regular, showline, color=(0, 0, 255), coeff_color=(0, 0, 255), show_coeff=True,
+                #        index=index + 5)
+                # cv2.imshow("heh", showline)
+                # cv2.waitKey()
+
+                # inliers = [True] * len(f_line)
+                if len(coeff) == 3:
+                    coeff = np.append(coeff, 0)
+                p_start = (int(-line[0, 1] * show_w_scl + showline_w / 2), int(showline_h - line[0, 0] * show_h_scl))
+
+                cv2.putText(showline, line_id, p_start, cv2.FONT_HERSHEY_COMPLEX, 0.6,
+                            (0, 0, 255))
+                cv2.putText(showline, f"n_t: {n_trails}", (p_start[0], p_start[1] - 60), cv2.FONT_HERSHEY_COMPLEX, 0.5,
+                            (0, 0, 255))
+                cv2.putText(showline, f"n_s: {samples}", (p_start[0], p_start[1] - 30), cv2.FONT_HERSHEY_COMPLEX, 0.5,
+                            (0, 0, 255))
+                vis(f_line, coeff, showline, inliers, show_coeff=False, index=index)
+
+                index += 1
+            if param>=max_samples:
+                break
+            file_name = f"frame_{frame}_param_{param}.png"
+            out_path = osp.join(out_root, file_name)
+            # out_img = cv2.hconcat([orin_img, showline])
+            out_img = showline
+            cv2.imwrite(out_path, out_img)
         frame_count += 1
